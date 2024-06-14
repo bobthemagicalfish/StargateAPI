@@ -14,8 +14,8 @@ namespace StargateAPI.Business.Commands
     public class CreatePersonPreProcessor : IRequestPreProcessor<CreatePerson>
     {
         private readonly StargateContext _context;
-        private readonly ICreateLogRecord _logger;
-        public CreatePersonPreProcessor(StargateContext context, ICreateLogRecord logger)
+        private readonly ILogRecord _logger;
+        public CreatePersonPreProcessor(StargateContext context, ILogRecord logger)
         {
             _context = context;
             _logger = logger;
@@ -29,8 +29,12 @@ namespace StargateAPI.Business.Commands
             }
             var person = _context.Person.AsNoTracking().FirstOrDefault(z => z.Name == request.Name);
 
-            if (person is not null) throw new BadHttpRequestException("Bad Request Person Already exisit");
+            if (person is not null)
+            {
+                _logger.CreateLogRecord("Error", "Bad Request Person Blank");
+                throw new BadHttpRequestException("Bad Request Person Already exisit");
 
+            }
             return Task.CompletedTask;
         }
     }
@@ -38,28 +42,29 @@ namespace StargateAPI.Business.Commands
     public class CreatePersonHandler : IRequestHandler<CreatePerson, CreatePersonResult>
     {
         private readonly StargateContext _context;
-
-        public CreatePersonHandler(StargateContext context)
+        private readonly ILogRecord _logger;
+        public CreatePersonHandler(StargateContext context, ILogRecord logger)
         {
+            _logger = logger;
             _context = context;
         }
         public async Task<CreatePersonResult> Handle(CreatePerson request, CancellationToken cancellationToken)
         {
 
-                var newPerson = new Person()
-                {
-                   Name = request.Name
-                };
+            var newPerson = new Person()
+            {
+                Name = request.Name
+            };
 
-                await _context.Person.AddAsync(newPerson);
+            await _context.Person.AddAsync(newPerson);
 
-                await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();
+            _logger.CreateLogRecord("Added new person " + request.Name, "Info");
+            return new CreatePersonResult()
+            {
+                Id = newPerson.Id
+            };
 
-                return new CreatePersonResult()
-                {
-                    Id = newPerson.Id
-                };
-          
         }
     }
 

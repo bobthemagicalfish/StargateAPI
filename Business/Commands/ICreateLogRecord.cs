@@ -1,6 +1,6 @@
 ﻿namespace StargateAPI.Business.Commands
 {
-    public interface ICreateLogRecord
+    public interface ILogRecord
     {
         void CreateLogRecord(string message,string typeofmessage);
     }

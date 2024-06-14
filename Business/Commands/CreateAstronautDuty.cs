@@ -22,29 +22,42 @@ namespace StargateAPI.Business.Commands
     public class CreateAstronautDutyPreProcessor : IRequestPreProcessor<CreateAstronautDuty>
     {
         private readonly StargateContext _context;
-
-        public CreateAstronautDutyPreProcessor(StargateContext context)
+        private readonly ILogRecord _logger;
+        public CreateAstronautDutyPreProcessor(StargateContext context,ILogRecord log)
         {
             _context = context;
+            _logger = log;
         }
 
         public Task Process(CreateAstronautDuty request, CancellationToken cancellationToken)
         {
+            _logger.CreateLogRecord(@$"validating  Name:{request.Name}  rank:{request.Rank}  
+                                        DutyTile:{request.DutyTitle} DutyStart:{request.DutyStartDate}","info");
             // checking to make sure data is not null for required fields
             if (request.Name.Trim().Length == 0
                 || request.Rank.Trim().Length == 0
                 || request.DutyTitle.Trim().Length == 0
                 || request.DutyStartDate.Date == new DateTime()) {
+                _logger.CreateLogRecord(@$"Bad Data in request for CreateAstronautDuty Name:{request.Name} " +
+                    "                    rank:{request.Rank}  DutyTile:{request.DutyTitle} DutyStart:{request.DutyStartDate}","Error");
                 throw new BadHttpRequestException("Bad Request Blank data dectected");
             }
 
             var person = _context.Person.AsNoTracking().FirstOrDefault(z => z.Name == request.Name);
 
-            if (person is null) throw new BadHttpRequestException("Bad Request Person not found");
+            if (person is null) {
+                _logger.CreateLogRecord(@$"Bad Request Person not found {request.Name} ", "Error");
+                throw new BadHttpRequestException("Bad Request Person not found"); 
+            }
 
-            var verifyNoPreviousDuty = _context.AstronautDuties.FirstOrDefault(z => z.DutyTitle == request.DutyTitle && z.DutyStartDate.Date == request.DutyStartDate.Date);
+            var verifyNoPreviousDuty = _context.AstronautDuties.FirstOrDefault(z => z.DutyTitle == request.DutyTitle 
+                                                                                && z.DutyStartDate.Date == request.DutyStartDate.Date);
 
-            if (verifyNoPreviousDuty is not null) throw new BadHttpRequestException("Bad Request  Same Duty entered twice");
+            if (verifyNoPreviousDuty is not null) {
+                _logger.CreateLogRecord($@"Bad Data in request for CreateAstronautDuty Name:{request.Name}  
+                            rank:{request.Rank}  DutyTile:{request.DutyTitle} DutyStart:{request.DutyStartDate}", "Error");
+                throw new BadHttpRequestException("Bad Request  Same Duty entered twice"); 
+            }
 
             return Task.CompletedTask;
         }
@@ -53,20 +66,24 @@ namespace StargateAPI.Business.Commands
     public class CreateAstronautDutyHandler : IRequestHandler<CreateAstronautDuty, CreateAstronautDutyResult>
     {
         private readonly StargateContext _context;
-
-        public CreateAstronautDutyHandler(StargateContext context)
+        private readonly ILogRecord _logger;
+        public CreateAstronautDutyHandler(StargateContext context, ILogRecord log)
         {
             _context = context;
+            _logger = log;
         }
         public async Task<CreateAstronautDutyResult> Handle(CreateAstronautDuty request, CancellationToken cancellationToken)
         {
+            _logger.CreateLogRecord(@$"Handleing  Name:{request.Name}  rank:{request.Rank}  DutyTile:{request.DutyTitle} DutyStart:{request.DutyStartDate}", "Error");
 
-           // var query = $"SELECT * FROM [Person] WHERE \'{request.Name}\' = Name";
+            // var query = $"SELECT * FROM [Person] WHERE \'{request.Name}\' = Name";
 
             var person =  _context.Person.Where(x=>x.Name== request.Name).FirstOrDefault();
 
             if ( person == null)
             {
+                _logger.CreateLogRecord(@$"Bad Request Person not found {request.Name} ", "Error");
+
                 throw new BadHttpRequestException("Bad Request");
             }
             //query = $"SELECT * FROM [AstronautDetail] WHERE {person.Id} = PersonId";
@@ -125,6 +142,7 @@ namespace StargateAPI.Business.Commands
             await _context.AstronautDuties.AddAsync(newAstronautDuty);
 
             await _context.SaveChangesAsync();
+            _logger.CreateLogRecord(@$"Done adding duty for {request.Name}  ", "info");
 
             return new CreateAstronautDutyResult()
             {

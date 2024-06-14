@@ -13,7 +13,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<StargateContext>(options => 
     options.UseSqlite(builder.Configuration.GetConnectionString("StarbaseApiDatabase")));
 
-builder.Services.AddScoped<ICreateLogRecord,CreateLogRecord>();
+builder.Services.AddScoped<ILogRecord,CreateLogRecord>();
 
 builder.Services.AddMediatR(cfg =>
 {
@@ -21,8 +21,18 @@ builder.Services.AddMediatR(cfg =>
     cfg.AddRequestPreProcessor<CreatePersonPreProcessor>();
     cfg.RegisterServicesFromAssemblies(typeof(Program).Assembly);
 });
+//opening it wide open for testing
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("OpenCorsPolicy", builder =>
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader());
+});
 
 var app = builder.Build();
+
+app.UseCors("OpenCorsPolicy");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
